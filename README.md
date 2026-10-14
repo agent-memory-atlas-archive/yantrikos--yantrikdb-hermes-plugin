@@ -20,7 +20,7 @@ This repository **is** the canonical distribution. Per Hermes maintainer guidanc
 ## Quick install
 
 ```bash
-pip install yantrikdb-hermes-plugin   # ~53 MB download, no torch; same Python env as Hermes
+pip install yantrikdb-hermes-plugin   # ~23 MB download, no torch; same Python env as Hermes
 yantrikdb-hermes install              # registers the plugin with Hermes
 hermes memory setup                   # → select "yantrikdb"
 ```
@@ -279,7 +279,7 @@ echo "YANTRIKDB_EMBEDDER_MODEL2VEC=minishlab/potion-multilingual-128M" >> ~/.her
 echo "YANTRIKDB_EMBEDDER_HF=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2" >> ~/.hermes/.env
 ```
 
-> **Embedder dependencies and Hermes updates.** As of v0.27.2, `model2vec` is declared as a hard runtime dependency in the plugin manifest's `pip_dependencies` (and `pyproject.toml`'s `[project] dependencies`), so it is installed alongside the plugin and **survives** Hermes' uv-managed environment regeneration — `hermes update` no longer silently drops it. Only `sentence-transformers` (which pulls in PyTorch) and anything a custom `YANTRIKDB_EMBEDDER_CLASS` imports remain outside the manifest: if you configure `YANTRIKDB_EMBEDDER_HF`, reinstall its dependencies into the plugin's environment after a regeneration (`uv pip install --python <plugin-env>/bin/python 'yantrikdb-hermes-plugin[sentence-transformers]'` or `sentence-transformers`). If an embedder stops loading after an update, the error message names the interpreter (`sys.executable`) and `sys.path` it searched. Hermes runs plugins with `-I`, so `PYTHONPATH` and user-site installs don't help. The bundled default and `YANTRIKDB_EMBEDDER=potion-base-*` need no extra packages and are unaffected.
+> **Embedder dependencies and Hermes updates.** `model2vec` is declared as a hard runtime dependency in the plugin manifest's `pip_dependencies` (and `pyproject.toml`'s `[project] dependencies`) on `main`, fixing #92 so it survives Hermes' uv-managed environment regeneration — `hermes update` will no longer silently drop it once this ships in the next release (current published release is v0.27.1; this fix is merged but unreleased). Until then, `model2vec` can still be dropped on `hermes update` and may need reinstalling. Only `sentence-transformers` (which pulls in PyTorch) and anything a custom `YANTRIKDB_EMBEDDER_CLASS` imports remain outside the manifest: if you configure `YANTRIKDB_EMBEDDER_HF`, reinstall its dependencies into the plugin's environment after a regeneration (`uv pip install --python <plugin-env>/bin/python 'yantrikdb-hermes-plugin[sentence-transformers]'` or `sentence-transformers`). If an embedder stops loading after an update, the error message names the interpreter (`sys.executable`) and `sys.path` it searched. Hermes runs plugins with `-I`, so `PYTHONPATH` and user-site installs don't help. The bundled default and `YANTRIKDB_EMBEDDER=potion-base-*` need no extra packages and are unaffected.
 
 ### Optional: quiet the HuggingFace embedder
 
@@ -455,7 +455,7 @@ DeepSeek wasn't told the reason codes existed; it parsed them from the tool resp
 | `recall_text` p99 | 67.2 ms | 13.24 ms |
 | Cold start | n/a | 77 ms (one-time) |
 | Required infrastructure | yantrikdb-server + token | none |
-| `pip install` footprint | wheel + requests | wheel + yantrikdb + requests + model2vec (~53 MB download, no torch) |
+| `pip install` footprint | wheel + requests | wheel + yantrikdb + requests (~23 MB download, no torch); grows to ~53 MB once `model2vec` lands as a hard dependency in the next release (merged to `main`, unreleased — #92) |
 
 Even embedded p99 tail latency is faster than HTTP p50 — bad-case embedded beats typical-case HTTP. Long-running soak validation is in progress upstream ([yantrikos/yantrikdb saga task #2](https://github.com/yantrikos/yantrikdb)); these numbers are 100-iteration micro-benchmarks, not 24-hour production traces.
 
@@ -496,7 +496,7 @@ YANTRIKDB_INTEGRATION_TOKEN=ydb_... \
 
 ## Status
 
-**v0.27.2** (current, 2026-10-12) — `model2vec` is now a manifest hard dependency (fixes #92); v0.27.1 improved embedder ImportErrors to name `sys.executable`/`sys.path`; the v0.27.0 multiplexed gateway now reads each profile's `YANTRIKDB_*` settings from that profile's own `.env` instead of the launch profile's environment; v0.26.0 fixed `think()` (consolidation, conflict scan) failing on every call on the embedded backend with engine 0.15.3 and later. Engine range `>=0.12.1,<0.24.0`. 500+ tests, CI on Python 3.11–3.14. **Standalone-by-design** per Hermes maintainer guidance — Hermes is not accepting new memory providers upstream; standalone plugins installed via `pip` are the recommended pattern. PR [#9989](https://github.com/NousResearch/hermes-agent/pull/9989) closed 2026-05-13 with that resolution.
+**v0.27.1** (current, 2026-10-05) — embedder `ImportError`s now name `sys.executable`/`sys.path`; the v0.27.0 multiplexed gateway reads each profile's `YANTRIKDB_*` settings from that profile's own `.env` instead of the launch profile's environment; v0.26.0 fixed `think()` (consolidation, conflict scan) failing on every call on the embedded backend with engine 0.15.3 and later. `model2vec` becoming a manifest hard dependency (fixes #92) is merged to `main`, pending the next release (unreleased). Engine range `>=0.12.1,<0.24.0`. 500+ tests, CI on Python 3.11–3.14. **Standalone-by-design** per Hermes maintainer guidance — Hermes is not accepting new memory providers upstream; standalone plugins installed via `pip` are the recommended pattern. PR [#9989](https://github.com/NousResearch/hermes-agent/pull/9989) closed 2026-05-13 with that resolution.
 
 ### Release cadence
 
@@ -516,11 +516,10 @@ YANTRIKDB_INTEGRATION_TOKEN=ydb_... \
 | v0.10.0 | 2026-07-25 | The install is the product |
 | v0.13.0 | 2026-08-05 | Built for fleets, not single agents |
 | v0.26.0 | 2026-09-17 | Self-maintenance (`think()`) runs again on the default backend |
-| v0.27.2 | 2026-10-12 | `model2vec` declared as a manifest hard dependency so it survives Hermes env regeneration (fixes #92) |
-| v0.27.1 | 2026-10-05 | Embedder ImportErrors name `sys.executable`/`sys.path` |
 | v0.27.0 | 2026-09-19 | Multiplexed gateway keeps each profile's settings separate |
+| v0.27.1 | 2026-10-05 | Embedder ImportErrors name `sys.executable`/`sys.path` |
 
-58 tagged releases in total; every one is in the [CHANGELOG](yantrikdb/CHANGELOG.md).
+59 tagged releases in total; every one is in the [CHANGELOG](yantrikdb/CHANGELOG.md) (`model2vec` becoming a manifest hard dependency, fixes #92, is merged to `main` as the next one, v0.27.2, not yet tagged/released).
 
 ### Durability signals
 
@@ -528,7 +527,7 @@ The maintainer doesn't promise "I won't quit" — promises like that aren't test
 
 - Every release ships with tests + CI (Python 3.11 / 3.12 / 3.13 / 3.14) + tagged CHANGELOG + a publish gate where the full test suite + ruff + mypy must pass before the wheel uploads to PyPI.
 - First user issue on this repo (multilingual embedding support) was filed and shipped to PyPI the same day — 25 minutes from raised to released.
-- Underlying yantrikdb engine: ~8.2k/mo PyPI downloads; flagship server repo has 175 GitHub stars. Cross-stack ownership (engine + HTTP server + MCP server + this plugin) — 14+ months of parallel maintenance, not a one-week hobby.
+- Underlying yantrikdb engine: ~6.7k/mo PyPI downloads; flagship server repo has 176 GitHub stars. Cross-stack ownership (engine + HTTP server + MCP server + this plugin) — 7+ months of parallel maintenance, not a one-week hobby.
 - Independent recognition: accepted into the [Cursor Directory](https://cursor.directory/plugins/yantrikdb) (300k+ developer reach) and (sibling project) the Anthropic MCP Directory.
 - Substrate design deposited as a peer-citable preprint: [10.5281/zenodo.20128887](https://doi.org/10.5281/zenodo.20128887).
 
